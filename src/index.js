@@ -1,43 +1,41 @@
 const { ApolloServer } = require("apollo-server");
-
+const { PrismaClient } = require("@prisma/client");
 const path = require("path");
 const fs = require("fs");
+const { PubSub } = require("apollo-server");
+const Subscription = require("./resolvers/Subscription")
+
+const { getUserId } = require("./utils");
+const Query = require("./resolvers/Query");
+const Mutation = require("./resolvers/Mutation");
+const User = require("./resolvers/User");
+const Link = require("./resolvers/Link");
+const Vote = require("./resolvers/Vote");
+
+const prisma = new PrismaClient();
+const pubsub = new PubSub();
 
 // actual implementation of the GraphQL schema
 const resolvers = {
-  Query: {
-    info: () => `This is the API of a Hackernews Clone`,
-    feed: () => links,
-  },
-  Mutation: {
-    post: (parent, args) => {
-      let idCount = links.length;
-
-      const link = {
-        id: `link-${idCount++}`,
-        description: args.description,
-        title: args.title,
-        url: args.url,
-      };
-      links.push(link);
-      return link;
-    },
-  },
+  Query,
+  Mutation,
+  Subscription,
+  User,
+  Link,
+  Vote
 };
 
 const server = new ApolloServer({
   typeDefs: fs.readFileSync(path.join(__dirname, "schema.graphql"), "utf8"),
   resolvers,
-});
-
-// store links at runtime
-let links = [
-  {
-    id: "link-0",
-    title: "Test Title",
-    url: "www.howtographql.com",
-    description: "Fullstack tutorial for GraphQL",
+  context: ({ req }) => {
+    return {
+      ...req,
+      prisma,
+      pubsub,
+      userId: req && req.headers.authorization ? getUserId(req) : null,
+    };
   },
-];
+});
 
 server.listen().then(({ url }) => console.log(`Server is running on ${url}`));
